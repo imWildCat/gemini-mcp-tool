@@ -1,9 +1,9 @@
 import { executeCommand } from './commandExecutor.js';
 import { Logger } from './logger.js';
-import { 
-  ERROR_MESSAGES, 
-  STATUS_MESSAGES, 
-  MODELS, 
+import {
+  ERROR_MESSAGES,
+  STATUS_MESSAGES,
+  MODELS,
   CLI
 } from '../constants.js';
 
@@ -11,6 +11,14 @@ import { parseChangeModeOutput, validateChangeModeEdits } from './changeModePars
 import { formatChangeModeResponse, summarizeChangeModeEdits } from './changeModeTranslator.js';
 import { chunkChangeModeEdits } from './changeModeChunker.js';
 import { cacheChunks, getChunks } from './chunkCache.js';
+
+/**
+ * Get the default model from environment variable or fallback to constant.
+ * Supports GEMINI_DEFAULT_MODEL or DEFAULT_MODEL environment variables.
+ */
+function getDefaultModel(): string {
+  return process.env.GEMINI_DEFAULT_MODEL || process.env.DEFAULT_MODEL || MODELS.PRO;
+}
 
 export async function executeGeminiCLI(
   prompt: string,
@@ -88,15 +96,18 @@ ${prompt_processed}
   }
   
   const args = [];
-  if (model) { args.push(CLI.FLAGS.MODEL, model); }
+  // Use environment variable default if no model specified
+  const effectiveModel = model || getDefaultModel();
+  if (effectiveModel) { args.push(CLI.FLAGS.MODEL, effectiveModel); }
   if (sandbox) { args.push(CLI.FLAGS.SANDBOX); }
   
   // Ensure @ symbols work cross-platform by wrapping in quotes if needed
-  const finalPrompt = prompt_processed.includes('@') && !prompt_processed.startsWith('"') 
-    ? `"${prompt_processed}"` 
+  const finalPrompt = prompt_processed.includes('@') && !prompt_processed.startsWith('"')
+    ? `"${prompt_processed}"`
     : prompt_processed;
-    
-  args.push(CLI.FLAGS.PROMPT, finalPrompt);
+
+  // Use positional argument instead of deprecated -p flag (Gemini CLI v0.23.0+)
+  args.push(finalPrompt);
   
   try {
     return await executeCommand(CLI.COMMANDS.GEMINI, args, onProgress);
@@ -112,11 +123,12 @@ ${prompt_processed}
       }
       
       // Same @ symbol handling for fallback
-      const fallbackPrompt = prompt_processed.includes('@') && !prompt_processed.startsWith('"') 
-        ? `"${prompt_processed}"` 
+      const fallbackPrompt = prompt_processed.includes('@') && !prompt_processed.startsWith('"')
+        ? `"${prompt_processed}"`
         : prompt_processed;
-        
-      fallbackArgs.push(CLI.FLAGS.PROMPT, fallbackPrompt);
+
+      // Use positional argument instead of deprecated -p flag (Gemini CLI v0.23.0+)
+      fallbackArgs.push(fallbackPrompt);
       try {
         const result = await executeCommand(CLI.COMMANDS.GEMINI, fallbackArgs, onProgress);
         Logger.warn(`Successfully executed with ${MODELS.FLASH} fallback.`);

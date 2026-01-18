@@ -82,6 +82,28 @@ Add this configuration to your Claude Desktop config file:
 }
 ```
 
+### With Custom Default Model
+
+You can set a default model via environment variable to avoid specifying it in every request:
+
+```json
+{
+  "mcpServers": {
+    "gemini-cli": {
+      "command": "npx",
+      "args": ["-y", "gemini-mcp-tool"],
+      "env": {
+        "GEMINI_DEFAULT_MODEL": "gemini-3-flash"
+      }
+    }
+  }
+}
+```
+
+Supported environment variables:
+- `GEMINI_DEFAULT_MODEL` - Sets the default Gemini model (e.g., `gemini-3-pro`, `gemini-3-flash`)
+- `DEFAULT_MODEL` - Alternative name for the same setting
+
 ### For Global Installation
 
 If you installed globally, use this configuration instead:
@@ -139,7 +161,7 @@ These tools are designed to be used by the AI assistant.
 
 - **`ask-gemini`**: Asks Google Gemini for its perspective. Can be used for general questions or complex analysis of files.
   - **`prompt`** (required): The analysis request. Use the `@` syntax to include file or directory references (e.g., `@src/main.js explain this code`) or ask general questions (e.g., `Please use a web search to find the latest news stories`).
-  - **`model`** (optional): The Gemini model to use. Defaults to `gemini-2.5-pro`.
+  - **`model`** (optional): The Gemini model to use. Defaults to `gemini-3-pro`. You can specify alternative models like `gemini-3-flash` for faster responses.
   - **`sandbox`** (optional): Set to `true` to run in sandbox mode for safe code execution.
 - **`sandbox-test`**: Safely executes code or commands in Gemini's sandbox environment. Always runs in sandbox mode.
   - **`prompt`** (required): Code testing request (e.g., `Create and run a Python script that...` or `@script.py Run this safely`).

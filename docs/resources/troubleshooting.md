@@ -121,7 +121,7 @@ claude mcp add gemini-cli -- npx gemini-mcp-tool
 
 2. **Switch to Gemini Flash for faster responses**:
    ```bash
-   gemini config set model gemini-2.5-flash
+   gemini config set model gemini-3-flash
    ```
 
 3. **Break up large requests into smaller chunks**:
@@ -191,7 +191,7 @@ claude mcp list
 # "🧠 Gemini is analyzing your request..."
 
 # Use faster Flash model for large requests
-/gemini-cli:analyze -m gemini-2.5-flash @large-file.js
+/gemini-cli:analyze -m gemini-3-flash @large-file.js
 
 # Break up large analysis into smaller chunks
 /gemini-cli:analyze @specific-function.js explain this function
@@ -207,23 +207,22 @@ claude mcp list
 ### "Token limit exceeded" / "Response exceeds maximum allowed tokens (25000)"
 **Problem**: Error shows response of 45,735 tokens even for small prompts
 
-**Root cause**: Model-specific bug in `gemini-2.5-pro` (default model)
+**Root cause**: Model-specific bug in older `gemini-2.5-pro` model
 
 **Working models**:
-- ✅ `gemini-2.5-flash` - Works perfectly
-- ❌ `gemini-2.5-pro` - Always returns 45k+ tokens
-- ❌ `gemini-2.0-flash-thinking` - Model not found
+- ✅ `gemini-3-pro` - Recommended default
+- ✅ `gemini-3-flash` - Works perfectly, faster responses
 
 **Solutions**:
 ```bash
-# Use Flash model (recommended)
-/gemini-cli:analyze -m gemini-2.5-flash "your prompt"
+# Use Flash model (recommended for speed)
+/gemini-cli:analyze -m gemini-3-flash "your prompt"
 
 # For large contexts, break into smaller chunks
-/gemini-cli:analyze -m gemini-2.5-flash @file1.js @file2.js
+/gemini-cli:analyze -m gemini-3-flash @file1.js @file2.js
 
-# Alternative: Use Pro for larger contexts when it works
-/gemini-cli:analyze -m gemini-2.5-pro "brief analysis only"
+# Pro model for highest quality
+/gemini-cli:analyze -m gemini-3-pro "detailed analysis"
 ```
 
 ## Configuration Issues
@@ -264,7 +263,7 @@ echo $GOOGLE_GENERATIVE_AI_API_KEY
 **For very large codebases** (10,000+ files):
 - Consider breaking analysis into smaller chunks
 - Use more specific file patterns with `@` syntax
-- Switch to `gemini-2.5-flash` for faster processing
+- Switch to `gemini-3-flash` for faster processing
 ```
 
 ## Debug Mode
@@ -292,24 +291,30 @@ Enable debug logging:
 
 ## Model-Specific Issues
 
-### Gemini-2.5-Pro Issues
-**Known problems**:
-- Always returns 45,735 token responses (bug)
-- May cause "response exceeds limit" errors
-- Not recommended for file analysis
-
-**Workaround**: Use Gemini Flash instead
-```bash
-/gemini-cli:analyze -m gemini-2.5-flash "your prompt"
-```
-
 ### Model Recommendations
 | **Use Case** | **Recommended Model** | **Reason** |
 |--------------|----------------------|------------|
-| File analysis | `gemini-2.5-flash` | Faster, stable responses |
-| Code review | `gemini-2.5-flash` | Good balance of speed/quality |
-| Large codebase | `gemini-2.5-flash` | Better timeout handling |
-| Quick questions | `gemini-2.5-flash` | Fast responses |
+| File analysis | `gemini-3-flash` | Faster, stable responses |
+| Code review | `gemini-3-pro` | Higher quality analysis |
+| Large codebase | `gemini-3-flash` | Better timeout handling |
+| Quick questions | `gemini-3-flash` | Fast responses |
+| Complex reasoning | `gemini-3-pro` | Best quality |
+
+### How to Set the Model
+
+**Per-request** (recommended):
+```bash
+# Specify model with -m flag
+/gemini-cli:analyze -m gemini-3-flash "your prompt"
+
+# Or when asking Claude to use Gemini:
+"use gemini with gemini-3-flash model to analyze this file"
+```
+
+**Globally via Gemini CLI config**:
+```bash
+gemini config set model gemini-3-pro
+```
 
 ## Quick Fixes
 
@@ -333,7 +338,7 @@ gemini "Hello"
 /gemini-cli:ping
 
 # Test file analysis with working model
-/gemini-cli:analyze -m gemini-2.5-flash @README.md summarize
+/gemini-cli:analyze -m gemini-3-flash @README.md summarize
 ```
 
 ## Platform-Specific Issues
