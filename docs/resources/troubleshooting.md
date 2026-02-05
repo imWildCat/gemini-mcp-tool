@@ -121,7 +121,7 @@ claude mcp add gemini-cli -- npx gemini-mcp-tool
 
 2. **Switch to Gemini Flash for faster responses**:
    ```bash
-   gemini config set model gemini-3-flash
+   gemini config set model gemini-3-flash-preview
    ```
 
 3. **Break up large requests into smaller chunks**:
@@ -191,7 +191,7 @@ claude mcp list
 # "🧠 Gemini is analyzing your request..."
 
 # Use faster Flash model for large requests
-/gemini-cli:analyze -m gemini-3-flash @large-file.js
+/gemini-cli:analyze -m gemini-3-flash-preview @large-file.js
 
 # Break up large analysis into smaller chunks
 /gemini-cli:analyze @specific-function.js explain this function
@@ -210,19 +210,19 @@ claude mcp list
 **Root cause**: Model-specific bug in older `gemini-2.5-pro` model
 
 **Working models**:
-- ✅ `gemini-3-pro` - Recommended default
-- ✅ `gemini-3-flash` - Works perfectly, faster responses
+- ✅ `gemini-3-pro-preview` - Recommended default
+- ✅ `gemini-3-flash-preview` - Works perfectly, faster responses
 
 **Solutions**:
 ```bash
 # Use Flash model (recommended for speed)
-/gemini-cli:analyze -m gemini-3-flash "your prompt"
+/gemini-cli:analyze -m gemini-3-flash-preview "your prompt"
 
 # For large contexts, break into smaller chunks
-/gemini-cli:analyze -m gemini-3-flash @file1.js @file2.js
+/gemini-cli:analyze -m gemini-3-flash-preview @file1.js @file2.js
 
 # Pro model for highest quality
-/gemini-cli:analyze -m gemini-3-pro "detailed analysis"
+/gemini-cli:analyze -m gemini-3-pro-preview "detailed analysis"
 ```
 
 ## Configuration Issues
@@ -263,7 +263,7 @@ echo $GOOGLE_GENERATIVE_AI_API_KEY
 **For very large codebases** (10,000+ files):
 - Consider breaking analysis into smaller chunks
 - Use more specific file patterns with `@` syntax
-- Switch to `gemini-3-flash` for faster processing
+- Switch to `gemini-3-flash-preview` for faster processing
 ```
 
 ## Debug Mode
@@ -294,26 +294,26 @@ Enable debug logging:
 ### Model Recommendations
 | **Use Case** | **Recommended Model** | **Reason** |
 |--------------|----------------------|------------|
-| File analysis | `gemini-3-flash` | Faster, stable responses |
-| Code review | `gemini-3-pro` | Higher quality analysis |
-| Large codebase | `gemini-3-flash` | Better timeout handling |
-| Quick questions | `gemini-3-flash` | Fast responses |
-| Complex reasoning | `gemini-3-pro` | Best quality |
+| File analysis | `gemini-3-flash-preview` | Faster, stable responses |
+| Code review | `gemini-3-pro-preview` | Higher quality analysis |
+| Large codebase | `gemini-3-flash-preview` | Better timeout handling |
+| Quick questions | `gemini-3-flash-preview` | Fast responses |
+| Complex reasoning | `gemini-3-pro-preview` | Best quality |
 
 ### How to Set the Model
 
 **Per-request** (recommended):
 ```bash
 # Specify model with -m flag
-/gemini-cli:analyze -m gemini-3-flash "your prompt"
+/gemini-cli:analyze -m gemini-3-flash-preview "your prompt"
 
 # Or when asking Claude to use Gemini:
-"use gemini with gemini-3-flash model to analyze this file"
+"use gemini with gemini-3-flash-preview model to analyze this file"
 ```
 
 **Globally via Gemini CLI config**:
 ```bash
-gemini config set model gemini-3-pro
+gemini config set model gemini-3-pro-preview
 ```
 
 ## Quick Fixes
@@ -338,7 +338,7 @@ gemini "Hello"
 /gemini-cli:ping
 
 # Test file analysis with working model
-/gemini-cli:analyze -m gemini-3-flash @README.md summarize
+/gemini-cli:analyze -m gemini-3-flash-preview @README.md summarize
 ```
 
 ## Platform-Specific Issues
