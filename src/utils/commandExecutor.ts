@@ -55,7 +55,7 @@ export async function executeCommand(
             details: {
               model: model,
               reason: reason,
-              statusText: "Too Many Requests --> try using gemini-3-flash-preview by asking",
+              statusText: "Too Many Requests — Gemini 3 Pro quota exceeded. Please try again later.",
             }
           }
         };

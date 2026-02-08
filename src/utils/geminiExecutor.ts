@@ -1,8 +1,6 @@
 import { executeCommand } from './commandExecutor.js';
 import { Logger } from './logger.js';
 import {
-  ERROR_MESSAGES,
-  STATUS_MESSAGES,
   MODELS,
   CLI
 } from '../constants.js';
@@ -27,6 +25,13 @@ export async function executeGeminiCLI(
   changeMode?: boolean,
   onProgress?: (newOutput: string) => void
 ): Promise<string> {
+  // Enforce pro-only model policy
+  // Use environment variable default if no model specified
+  const effectiveModel = model || getDefaultModel();
+  if (effectiveModel !== MODELS.PRO) {
+    throw new Error(`Only '${MODELS.PRO}' is supported. Received: '${effectiveModel}'`);
+  }
+
   let prompt_processed = prompt;
   
   if (changeMode) {
@@ -96,9 +101,7 @@ ${prompt_processed}
   }
   
   const args = [];
-  // Use environment variable default if no model specified
-  const effectiveModel = model || getDefaultModel();
-  if (effectiveModel) { args.push(CLI.FLAGS.MODEL, effectiveModel); }
+  args.push(CLI.FLAGS.MODEL, effectiveModel);
   if (sandbox) { args.push(CLI.FLAGS.SANDBOX); }
   
   // Ensure @ symbols work cross-platform by wrapping in quotes if needed
@@ -112,35 +115,7 @@ ${prompt_processed}
   try {
     return await executeCommand(CLI.COMMANDS.GEMINI, args, onProgress);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    if (errorMessage.includes(ERROR_MESSAGES.QUOTA_EXCEEDED) && model !== MODELS.FLASH) {
-      Logger.warn(`${ERROR_MESSAGES.QUOTA_EXCEEDED}. Falling back to ${MODELS.FLASH}.`);
-      await sendStatusMessage(STATUS_MESSAGES.FLASH_RETRY);
-      const fallbackArgs = [];
-      fallbackArgs.push(CLI.FLAGS.MODEL, MODELS.FLASH);
-      if (sandbox) {
-        fallbackArgs.push(CLI.FLAGS.SANDBOX);
-      }
-      
-      // Same @ symbol handling for fallback
-      const fallbackPrompt = prompt_processed.includes('@') && !prompt_processed.startsWith('"')
-        ? `"${prompt_processed}"`
-        : prompt_processed;
-
-      // Use positional argument instead of deprecated -p flag (Gemini CLI v0.23.0+)
-      fallbackArgs.push(fallbackPrompt);
-      try {
-        const result = await executeCommand(CLI.COMMANDS.GEMINI, fallbackArgs, onProgress);
-        Logger.warn(`Successfully executed with ${MODELS.FLASH} fallback.`);
-        await sendStatusMessage(STATUS_MESSAGES.FLASH_SUCCESS);
-        return result;
-      } catch (fallbackError) {
-        const fallbackErrorMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
-        throw new Error(`${MODELS.PRO} quota exceeded, ${MODELS.FLASH} fallback also failed: ${fallbackErrorMessage}`);
-      }
-    } else {
-      throw error;
-    }
+    throw error;
   }
 }
 
@@ -211,9 +186,4 @@ export async function processChangeModeOutput(
   
   Logger.debug(`ChangeMode: Parsed ${edits.length} edits, ${chunks.length} chunks, returning chunk ${returnChunkIndex}`);
   return result;
-}
-
-// Placeholder
-async function sendStatusMessage(message: string): Promise<void> {
-  Logger.debug(`Status: ${message}`);
 }

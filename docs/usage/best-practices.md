@@ -50,9 +50,7 @@ Include configuration with implementation:
 ## Token Management
 
 ### Gemini Model Selection
-- **Quick tasks**: Use Flash (1M tokens)
-- **Full analysis**: Use Pro (2M tokens)
-- **Simple queries**: Use Flash-8B
+- **All tasks**: Use Pro (2M tokens) — the only supported model
 
 ### Efficient File Inclusion
 ```bash
@@ -167,8 +165,8 @@ Always include full error messages and stack traces when debugging.
 ✅ `@error.log @config.js "why doesn't database connection work?"`
 
 ### 3. Ignoring Model Limits
-❌ Trying to analyze 5M tokens with Flash model
-✅ Using Pro for large codebases, Flash for single files
+❌ Trying to analyze 5M tokens in a single request
+✅ Breaking large codebases into smaller chunks for Pro
 
 ### 4. Vague Success Criteria
 ❌ "make it better"

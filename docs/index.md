@@ -34,7 +34,7 @@ features:
     details: Gemini-mcp-tool does not require any extra keys.
   - icon: 🚦
     title: Model Selection
-    details: Choose from Gemini-2.5-Pro and Gemini-2.5-Flash, using natural language.
+    details: Uses Gemini-3-Pro-preview exclusively for maximum quality.
 ---
 
 <div class="explore-hint" style="text-align: center; margin: 32px 0 48px; position: relative;">

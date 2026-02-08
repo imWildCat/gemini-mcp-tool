@@ -47,9 +47,7 @@ It's how you reference files for analysis:
 Yes! Gemini's 1M token context allows analyzing entire codebases.
 
 ### Which model should I use?
-- **Daily work**: Gemini Pro
-- **Large analysis**: Gemini Pro
-- **Quick tasks**: Gemini Flash
+- **All tasks**: Gemini Pro — the only supported model
 
 ## Features
 
@@ -63,7 +61,6 @@ No, it requires internet to connect to Gemini API.
 
 ### Why is it slow?
 - Large files take time to process
-- Try using Flash model for speed
 - Check your internet connection
 
 ### Can I use my own models?

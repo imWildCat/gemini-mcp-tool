@@ -9,7 +9,7 @@ One of the most powerful features of Gemini MCP Tool is the ability to analyze f
 ```
 ```
 ask gemini to analyze the entire codebase and a comment block 
-to the top of every script, explaining that script. Use flash.
+to the top of every script, explaining that script.
 ```
 ```
 Ask gemini to explain @index.js by reading the entire codebase first
