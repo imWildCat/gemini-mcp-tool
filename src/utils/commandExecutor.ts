@@ -40,7 +40,7 @@ export async function executeCommand(
     // CLI level errors
     childProcess.stderr.on("data", (data) => {
       stderr += data.toString();
-      // find RESOURCE_EXHAUSTED when gemini-3-pro-preview quota is exceeded
+      // find RESOURCE_EXHAUSTED when gemini quota is exceeded
       if (stderr.includes("RESOURCE_EXHAUSTED")) {
         const modelMatch = stderr.match(/Quota exceeded for quota metric '([^']+)'/);
         const statusMatch = stderr.match(/status["\s]*[:=]\s*(\d+)/);
@@ -55,7 +55,7 @@ export async function executeCommand(
             details: {
               model: model,
               reason: reason,
-              statusText: "Too Many Requests — Gemini 3 Pro quota exceeded. Please try again later.",
+              statusText: "Too Many Requests — Gemini quota exceeded. Please try again later.",
             }
           }
         };

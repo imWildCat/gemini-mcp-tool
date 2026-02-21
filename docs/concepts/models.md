@@ -1,17 +1,26 @@
 # Model Selection
 
-This server exclusively uses **Gemini 3 Pro**.
+This server supports multiple Gemini models, with **Gemini 3.1 Pro** as the default.
 
-## Supported Model
+## Supported Models
+
+### gemini-3.1-pro-preview (Default)
+- **Best for**: Latest features, complex analysis, large codebases
+- **Context**: 2M tokens
+- **Identifier**: `gemini-3.1-pro-preview`
 
 ### gemini-3-pro-preview
-- **Best for**: Complex analysis, large codebases, architectural reviews
+- **Best for**: Stable analysis, large codebases
 - **Context**: 2M tokens
-- **Use when**: All tasks — this is the only supported model
+- **Identifier**: `gemini-3-pro-preview`
+
+### 3
+- **Best for**: Quick selection of the standard Gemini 3 model
+- **Identifier**: `3`
 
 ## Setting Models
 
-The default model is `gemini-3-pro-preview`. You can override via environment variable, but only `gemini-3-pro-preview` is accepted:
+The default model is `gemini-3.1-pro-preview`. You can override via environment variable:
 
 ### In Configuration
 ```json
@@ -20,7 +29,7 @@ The default model is `gemini-3-pro-preview`. You can override via environment va
     "gemini-cli": {
       "command": "gemini-mcp",
       "env": {
-        "GEMINI_DEFAULT_MODEL": "gemini-3-pro-preview"
+        "GEMINI_DEFAULT_MODEL": "gemini-3.1-pro-preview"
       }
     }
   }
@@ -29,13 +38,13 @@ The default model is `gemini-3-pro-preview`. You can override via environment va
 
 ## Token Limits
 
-- **Pro**: ~2 million tokens (~500k lines of code)
+- **Gemini 3/3.1 Pro**: ~2 million tokens (~500k lines of code)
 
 ## Recommendations
 
-- **Code Review**: Pro
-- **Architecture Analysis**: Pro
-- **Quick Fixes**: Pro
-- **Documentation**: Pro
-- **Security Audit**: Pro
-- **Brainstorming**: Pro
+- **Code Review**: gemini-3.1-pro-preview
+- **Architecture Analysis**: gemini-3.1-pro-preview
+- **Quick Fixes**: gemini-3.1-pro-preview
+- **Documentation**: gemini-3.1-pro-preview
+- **Security Audit**: gemini-3.1-pro-preview
+- **Brainstorming**: gemini-3.1-pro-preview

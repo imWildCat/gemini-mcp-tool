@@ -208,18 +208,20 @@ claude mcp list
 **Root cause**: Model-specific bug in older `gemini-2.5-pro` model
 
 **Working models**:
-- ✅ `gemini-3-pro-preview` - Recommended default (only supported model)
+- ✅ `gemini-3.1-pro-preview` - Recommended default
+- ✅ `gemini-3-pro-preview`
+- ✅ `3`
 
 **Solutions**:
 ```bash
-# Use Pro model
-/gemini-cli:analyze -m gemini-3-pro-preview "your prompt"
+# Use Gemini 3.1 Pro (default)
+/gemini-cli:analyze "your prompt"
 
 # For large contexts, break into smaller chunks
 /gemini-cli:analyze @file1.js @file2.js
 
-# Pro model for highest quality
-/gemini-cli:analyze -m gemini-3-pro-preview "detailed analysis"
+# Specify model for highest quality
+/gemini-cli:analyze -m gemini-3.1-pro-preview "detailed analysis"
 ```
 
 ## Configuration Issues
@@ -290,26 +292,26 @@ Enable debug logging:
 ### Model Recommendations
 | **Use Case** | **Recommended Model** | **Reason** |
 |--------------|----------------------|------------|
-| File analysis | `gemini-3-pro-preview` | High quality analysis |
-| Code review | `gemini-3-pro-preview` | Higher quality analysis |
-| Large codebase | `gemini-3-pro-preview` | 2M token context |
-| Quick questions | `gemini-3-pro-preview` | Only supported model |
-| Complex reasoning | `gemini-3-pro-preview` | Best quality |
+| File analysis | `gemini-3.1-pro-preview` | High quality analysis |
+| Code review | `gemini-3.1-pro-preview` | Higher quality analysis |
+| Large codebase | `gemini-3.1-pro-preview` | 2M token context |
+| Quick questions | `3` | Fast selection |
+| Complex reasoning | `gemini-3.1-pro-preview` | Best quality |
 
 ### How to Set the Model
 
 **Per-request** (recommended):
 ```bash
 # Specify model with -m flag
-/gemini-cli:analyze -m gemini-3-pro-preview "your prompt"
+/gemini-cli:analyze -m gemini-3.1-pro-preview "your prompt"
 
 # Or when asking Claude to use Gemini:
-"use gemini with gemini-3-pro-preview model to analyze this file"
+"use gemini with gemini-3.1-pro-preview model to analyze this file"
 ```
 
 **Globally via Gemini CLI config**:
 ```bash
-gemini config set model gemini-3-pro-preview
+gemini config set model gemini-3.1-pro-preview
 ```
 
 ## Quick Fixes
@@ -330,11 +332,11 @@ gemini config set api_key YOUR_API_KEY
 # Test Gemini CLI
 gemini "Hello"
 
-# Test MCP Tool with Pro model
+# Test MCP Tool
 /gemini-cli:ping
 
-# Test file analysis with working model
-/gemini-cli:analyze -m gemini-3-pro-preview @README.md summarize
+# Test file analysis with default model
+/gemini-cli:analyze @README.md summarize
 ```
 
 ## Platform-Specific Issues

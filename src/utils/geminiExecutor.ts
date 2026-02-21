@@ -2,6 +2,7 @@ import { executeCommand } from './commandExecutor.js';
 import { Logger } from './logger.js';
 import {
   MODELS,
+  SUPPORTED_MODELS,
   CLI
 } from '../constants.js';
 
@@ -15,7 +16,7 @@ import { cacheChunks, getChunks } from './chunkCache.js';
  * Supports GEMINI_DEFAULT_MODEL or DEFAULT_MODEL environment variables.
  */
 function getDefaultModel(): string {
-  return process.env.GEMINI_DEFAULT_MODEL || process.env.DEFAULT_MODEL || MODELS.PRO;
+  return process.env.GEMINI_DEFAULT_MODEL || process.env.DEFAULT_MODEL || MODELS.DEFAULT;
 }
 
 export async function executeGeminiCLI(
@@ -25,11 +26,10 @@ export async function executeGeminiCLI(
   changeMode?: boolean,
   onProgress?: (newOutput: string) => void
 ): Promise<string> {
-  // Enforce pro-only model policy
   // Use environment variable default if no model specified
   const effectiveModel = model || getDefaultModel();
-  if (effectiveModel !== MODELS.PRO) {
-    throw new Error(`Only '${MODELS.PRO}' is supported. Received: '${effectiveModel}'`);
+  if (!SUPPORTED_MODELS.includes(effectiveModel)) {
+    throw new Error(`Model '${effectiveModel}' is not supported. Supported models: ${SUPPORTED_MODELS.join(', ')}`);
   }
 
   let prompt_processed = prompt;

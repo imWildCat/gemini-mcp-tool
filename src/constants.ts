@@ -5,8 +5,8 @@ export const LOG_PREFIX = "[GMCPT]";
 
 // Error messages
 export const ERROR_MESSAGES = {
-  QUOTA_EXCEEDED: "Quota exceeded for quota metric 'Gemini 3 Pro Requests'",
-  QUOTA_EXCEEDED_SHORT: "⚠️ Gemini 3 Pro daily quota exceeded. Please try again later.",
+  QUOTA_EXCEEDED: "Quota exceeded for Gemini model requests",
+  QUOTA_EXCEEDED_SHORT: "⚠️ Gemini daily quota exceeded. Please try again later.",
   TOOL_NOT_FOUND: "not found in registry",
   NO_PROMPT_PROVIDED: "Please provide a prompt for analysis. Use @ syntax to include files (e.g., '@largefile.js explain what this does') or ask general questions",
 } as const;
@@ -23,8 +23,13 @@ export const STATUS_MESSAGES = {
 
 // Models
 export const MODELS = {
+  V3: "3",
   PRO: "gemini-3-pro-preview",
+  PRO_31: "gemini-3.1-pro-preview",
+  DEFAULT: "gemini-3.1-pro-preview",
 } as const;
+
+export const SUPPORTED_MODELS = [MODELS.V3, MODELS.PRO, MODELS.PRO_31] as string[];
 
 // MCP Protocol Constants
 export const PROTOCOL = {
