@@ -26,10 +26,17 @@ export const MODELS = {
   V3: "3",
   PRO: "gemini-3-pro-preview",
   PRO_31: "gemini-3.1-pro-preview",
-  DEFAULT: "gemini-3.1-pro-preview",
 } as const;
 
-export const SUPPORTED_MODELS = [MODELS.V3, MODELS.PRO, MODELS.PRO_31] as string[];
+/**
+ * Fallback chain when no model is explicitly specified.
+ * Tried in order; `null` means omit the --model flag entirely (CLI default).
+ */
+export const FALLBACK_MODELS: (string | null)[] = [
+  MODELS.PRO_31,  // gemini-3.1-pro-preview
+  MODELS.PRO,     // gemini-3-pro-preview
+  null,           // no --model flag → CLI picks its own default
+];
 
 // MCP Protocol Constants
 export const PROTOCOL = {

@@ -82,9 +82,18 @@ Add this configuration to your Claude Desktop config file:
 }
 ```
 
+### Model Selection
+
+When no model is specified, the tool automatically tries models in order:
+1. `gemini-3.1-pro-preview`
+2. `gemini-3-pro-preview`
+3. CLI default (no `--model` flag)
+
+If a model fails, the next one in the chain is tried automatically.
+
 ### With Custom Default Model
 
-You can set a default model via environment variable to avoid specifying it in every request:
+You can pin a specific model via environment variable to skip the fallback chain:
 
 ```json
 {
@@ -101,7 +110,7 @@ You can set a default model via environment variable to avoid specifying it in e
 ```
 
 Supported environment variables:
-- `GEMINI_DEFAULT_MODEL` - Sets the default Gemini model (defaults to `gemini-3.1-pro-preview`)
+- `GEMINI_DEFAULT_MODEL` - Pins a specific model (skips fallback chain)
 - `DEFAULT_MODEL` - Alternative name for the same setting
 
 ### For Global Installation
@@ -161,7 +170,7 @@ These tools are designed to be used by the AI assistant.
 
 - **`ask-gemini`**: Asks Google Gemini for its perspective. Can be used for general questions or complex analysis of files.
   - **`prompt`** (required): The analysis request. Use the `@` syntax to include file or directory references (e.g., `@src/main.js explain this code`) or ask general questions (e.g., `Please use a web search to find the latest news stories`).
-  - **`model`** (optional): The Gemini model to use. Defaults to `gemini-3.1-pro-preview`. Supported models: `gemini-3.1-pro-preview`, `gemini-3-pro-preview`, `3`.
+  - **`model`** (optional): The Gemini model to use. If not specified, tries `gemini-3.1-pro-preview` → `gemini-3-pro-preview` → CLI default.
   - **`sandbox`** (optional): Set to `true` to run in sandbox mode for safe code execution.
 - **`sandbox-test`**: Safely executes code or commands in Gemini's sandbox environment. Always runs in sandbox mode.
   - **`prompt`** (required): Code testing request (e.g., `Create and run a Python script that...` or `@script.py Run this safely`).

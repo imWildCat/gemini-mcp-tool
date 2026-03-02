@@ -1,8 +1,7 @@
 import { executeCommand } from './commandExecutor.js';
 import { Logger } from './logger.js';
 import {
-  MODELS,
-  SUPPORTED_MODELS,
+  FALLBACK_MODELS,
   CLI
 } from '../constants.js';
 
@@ -12,11 +11,26 @@ import { chunkChangeModeEdits } from './changeModeChunker.js';
 import { cacheChunks, getChunks } from './chunkCache.js';
 
 /**
- * Get the default model from environment variable or fallback to constant.
- * Supports GEMINI_DEFAULT_MODEL or DEFAULT_MODEL environment variables.
+ * Get the user-configured default model from environment variable, if any.
+ * Returns undefined when no env override is set (triggers fallback chain).
  */
-function getDefaultModel(): string {
-  return process.env.GEMINI_DEFAULT_MODEL || process.env.DEFAULT_MODEL || MODELS.DEFAULT;
+function getEnvModelOverride(): string | undefined {
+  return process.env.GEMINI_DEFAULT_MODEL || process.env.DEFAULT_MODEL || undefined;
+}
+
+/**
+ * Build CLI args for a single Gemini invocation.
+ * When `model` is null, the --model flag is omitted entirely.
+ */
+function buildArgs(model: string | null, sandbox: boolean): string[] {
+  const args: string[] = [];
+  if (model !== null) {
+    args.push(CLI.FLAGS.MODEL, model);
+  }
+  if (sandbox) {
+    args.push(CLI.FLAGS.SANDBOX);
+  }
+  return args;
 }
 
 export async function executeGeminiCLI(
@@ -26,12 +40,6 @@ export async function executeGeminiCLI(
   changeMode?: boolean,
   onProgress?: (newOutput: string) => void
 ): Promise<string> {
-  // Use environment variable default if no model specified
-  const effectiveModel = model || getDefaultModel();
-  if (!SUPPORTED_MODELS.includes(effectiveModel)) {
-    throw new Error(`Model '${effectiveModel}' is not supported. Supported models: ${SUPPORTED_MODELS.join(', ')}`);
-  }
-
   let prompt_processed = prompt;
   
   if (changeMode) {
@@ -59,16 +67,16 @@ CRITICAL REQUIREMENTS:
 
 OUTPUT FORMAT (follow exactly):
 **FILE: [filename]:[line_number]**
-\`\`\`
+\\\`\\\`\\\`
 OLD:
 [exact code to be replaced - must match file content precisely]
 NEW:
 [new code to insert - complete and functional]
-\`\`\`
+\\\`\\\`\\\`
 
 EXAMPLE 1 - Simple unique match:
 **FILE: src/utils/helper.js:100**
-\`\`\`
+\\\`\\\`\\\`
 OLD:
 function getMessage() {
   return "Hello World";
@@ -77,11 +85,11 @@ NEW:
 function getMessage() {
   return "Hello Universe!";
 }
-\`\`\`
+\\\`\\\`\\\`
 
 EXAMPLE 2 - Common tag needing context:
 **FILE: index.html:245**
-\`\`\`
+\\\`\\\`\\\`
 OLD:
         </div>
       </div>
@@ -90,7 +98,7 @@ NEW:
         </div>
       </footer>
     </section>
-\`\`\`
+\\\`\\\`\\\`
 
 IMPORTANT: The OLD section must be an EXACT copy from the file that can be found with Ctrl+F!
 
@@ -100,23 +108,53 @@ ${prompt_processed}
     prompt_processed = changeModeInstructions;
   }
   
-  const args = [];
-  args.push(CLI.FLAGS.MODEL, effectiveModel);
-  if (sandbox) { args.push(CLI.FLAGS.SANDBOX); }
-  
   // Ensure @ symbols work cross-platform by wrapping in quotes if needed
   const finalPrompt = prompt_processed.includes('@') && !prompt_processed.startsWith('"')
     ? `"${prompt_processed}"`
     : prompt_processed;
 
-  // Use positional argument instead of deprecated -p flag (Gemini CLI v0.23.0+)
-  args.push(finalPrompt);
-  
-  try {
-    return await executeCommand(CLI.COMMANDS.GEMINI, args, onProgress);
-  } catch (error) {
-    throw error;
+  // --- Model selection strategy ---
+  // If the user explicitly specified a model, use it directly (no fallback).
+  // If an env override exists, use that directly (no fallback).
+  // Otherwise, iterate through FALLBACK_MODELS.
+  const envOverride = getEnvModelOverride();
+
+  if (model) {
+    // User-specified model → single attempt
+    const args = buildArgs(model, !!sandbox);
+    args.push(finalPrompt);
+    return executeCommand(CLI.COMMANDS.GEMINI, args, onProgress);
   }
+
+  if (envOverride) {
+    // Env-configured model → single attempt
+    const args = buildArgs(envOverride, !!sandbox);
+    args.push(finalPrompt);
+    return executeCommand(CLI.COMMANDS.GEMINI, args, onProgress);
+  }
+
+  // No model specified → fallback chain
+  let lastError: Error | undefined;
+  for (let i = 0; i < FALLBACK_MODELS.length; i++) {
+    const candidateModel = FALLBACK_MODELS[i];
+    const isLastAttempt = i === FALLBACK_MODELS.length - 1;
+    const label = candidateModel ?? '(CLI default)';
+    try {
+      Logger.debug(`Trying model: ${label}`);
+      const args = buildArgs(candidateModel, !!sandbox);
+      args.push(finalPrompt);
+      // Only pass onProgress to the last attempt to avoid leaking
+      // partial output from a failed model through the callback
+      return await executeCommand(CLI.COMMANDS.GEMINI, args, isLastAttempt ? onProgress : undefined);
+    } catch (error) {
+      lastError = error as Error;
+      Logger.debug(`Model ${label} failed: ${lastError.message}`);
+      // Continue to next model in the fallback chain
+    }
+  }
+
+  // All fallback models exhausted
+  throw lastError ?? new Error('All model fallback attempts failed');
 }
 
 export async function processChangeModeOutput(
