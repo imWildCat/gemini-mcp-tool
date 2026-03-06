@@ -146,18 +146,18 @@ export const brainstormTool: UnifiedTool = {
       includeAnalysis = true
     } = args;
 
-    if (!prompt?.trim()) {
+    if (!prompt || !String(prompt).trim()) {
       throw new Error("You must provide a valid brainstorming challenge or question to explore");
     }
 
     let enhancedPrompt = buildBrainstormPrompt({
-      prompt: prompt.trim() as string,
-      methodology: methodology as string,
-      domain: domain as string | undefined,
-      constraints: constraints as string | undefined,
-      existingContext: existingContext as string | undefined,
-      ideaCount: ideaCount as number,
-      includeAnalysis: includeAnalysis as boolean
+      prompt: String(prompt).trim(),
+      methodology: String(methodology),
+      domain: domain ? String(domain) : undefined,
+      constraints: constraints ? String(constraints) : undefined,
+      existingContext: existingContext ? String(existingContext) : undefined,
+      ideaCount: Number(ideaCount),
+      includeAnalysis: Boolean(includeAnalysis),
     });
 
     Logger.debug(`Brainstorm: Using methodology '${methodology}' for domain '${domain || 'general'}'`);
@@ -166,6 +166,7 @@ export const brainstormTool: UnifiedTool = {
     onProgress?.(`Generating ${ideaCount} ideas via ${methodology} methodology...`);
     
     // Execute with Gemini
-    return await executeGeminiCLI(enhancedPrompt, model as string | undefined, false, false, onProgress);
+    const { output, model: usedModel } = await executeGeminiCLI(enhancedPrompt, model ? String(model) : undefined, false, false, onProgress);
+    return `[model: ${usedModel}]\n${output}`;
   }
 };

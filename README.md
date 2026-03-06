@@ -3,22 +3,22 @@
 
 <div align="center">
 
-[![GitHub Release](https://img.shields.io/github/v/release/jamubc/gemini-mcp-tool?logo=github&label=GitHub)](https://github.com/jamubc/gemini-mcp-tool/releases)
-[![npm version](https://img.shields.io/npm/v/gemini-mcp-tool)](https://www.npmjs.com/package/gemini-mcp-tool)
-[![npm downloads](https://img.shields.io/npm/dt/gemini-mcp-tool)](https://www.npmjs.com/package/gemini-mcp-tool)
+[![GitHub Release](https://img.shields.io/github/v/release/imWildCat/gemini-mcp-tool?logo=github&label=GitHub)](https://github.com/imWildCat/gemini-mcp-tool/releases)
+[![npm version](https://img.shields.io/npm/v/cat-gemini-mcp)](https://www.npmjs.com/package/cat-gemini-mcp)
+[![npm downloads](https://img.shields.io/npm/dt/cat-gemini-mcp)](https://www.npmjs.com/package/cat-gemini-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Open Source](https://img.shields.io/badge/Open%20Source-❤️-red.svg)](https://github.com/jamubc/gemini-mcp-tool)
+[![Open Source](https://img.shields.io/badge/Open%20Source-❤️-red.svg)](https://github.com/imWildCat/gemini-mcp-tool)
 
 </div>
 
-> 📚 **[View Full Documentation](https://jamubc.github.io/gemini-mcp-tool/)** - Search me!, Examples, FAQ, Troubleshooting, Best Practices
+> 📚 **[View Full Documentation](https://imWildCat.github.io/gemini-mcp-tool/)** - Search me!, Examples, FAQ, Troubleshooting, Best Practices
 
 This is a simple Model Context Protocol (MCP) server that allows AI assistants to interact with the [Gemini CLI](https://github.com/google-gemini/gemini-cli). It enables the AI to leverage the power of Gemini's massive token window for large analysis, especially with large files and codebases using the `@` syntax for direction.
 
 - Ask gemini natural questions, through claude or Brainstorm new ideas in a party of 3!
 
-<a href="https://glama.ai/mcp/servers/@jamubc/gemini-mcp-tool">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@jamubc/gemini-mcp-tool/badge" alt="Gemini Tool MCP server" />
+<a href="https://glama.ai/mcp/servers/@imWildCat/gemini-mcp-tool">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@imWildCat/gemini-mcp-tool/badge" alt="Gemini Tool MCP server" />
 </a>
 
 ## TLDR: [![Claude](https://img.shields.io/badge/Claude-D97757?logo=claude&logoColor=fff)](#) + [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-886FBF?logo=googlegemini&logoColor=fff)](#)
@@ -37,7 +37,7 @@ Before using this tool, ensure you have:
 ### One-Line Setup
 
 ```bash
-claude mcp add gemini-cli -- npx -y gemini-mcp-tool
+claude mcp add gemini-cli -- npx -y cat-gemini-mcp
 ```
 
 ### Verify Installation
@@ -54,7 +54,7 @@ If you already have it configured in Claude Desktop:
 ```json
 "gemini-cli": {
   "command": "npx",
-  "args": ["-y", "gemini-mcp-tool"]
+  "args": ["-y", "cat-gemini-mcp"]
 }
 ```
 
@@ -76,7 +76,7 @@ Add this configuration to your Claude Desktop config file:
   "mcpServers": {
     "gemini-cli": {
       "command": "npx",
-      "args": ["-y", "gemini-mcp-tool"]
+      "args": ["-y", "cat-gemini-mcp"]
     }
   }
 }
@@ -87,9 +87,9 @@ Add this configuration to your Claude Desktop config file:
 When no model is specified, the tool automatically tries models in order:
 1. `gemini-3.1-pro-preview`
 2. `gemini-3-pro-preview`
-3. CLI default (no `--model` flag)
+3. `gemini-2.5-pro` (stable GA fallback)
 
-If a model fails, the next one in the chain is tried automatically.
+If a model fails, the next one in the chain is tried automatically. The response includes `[model: ...]` so you always know which model was used.
 
 ### With Custom Default Model
 
@@ -100,7 +100,7 @@ You can pin a specific model via environment variable to skip the fallback chain
   "mcpServers": {
     "gemini-cli": {
       "command": "npx",
-      "args": ["-y", "gemini-mcp-tool"],
+      "args": ["-y", "cat-gemini-mcp"],
       "env": {
         "GEMINI_DEFAULT_MODEL": "gemini-3.1-pro-preview"
       }
@@ -112,6 +112,7 @@ You can pin a specific model via environment variable to skip the fallback chain
 Supported environment variables:
 - `GEMINI_DEFAULT_MODEL` - Pins a specific model (skips fallback chain)
 - `DEFAULT_MODEL` - Alternative name for the same setting
+- `GMCPT_LOG_LEVEL` - Log verbosity: `debug`, `info` (default), `warn`, `error`
 
 ### For Global Installation
 
@@ -170,10 +171,11 @@ These tools are designed to be used by the AI assistant.
 
 - **`ask-gemini`**: Asks Google Gemini for its perspective. Can be used for general questions or complex analysis of files.
   - **`prompt`** (required): The analysis request. Use the `@` syntax to include file or directory references (e.g., `@src/main.js explain this code`) or ask general questions (e.g., `Please use a web search to find the latest news stories`).
-  - **`model`** (optional): The Gemini model to use. If not specified, tries `gemini-3.1-pro-preview` → `gemini-3-pro-preview` → CLI default.
+  - **`model`** (optional): The Gemini model to use. If not specified, tries `gemini-3.1-pro-preview` → `gemini-3-pro-preview` → `gemini-2.5-pro`.
   - **`sandbox`** (optional): Set to `true` to run in sandbox mode for safe code execution.
-- **`sandbox-test`**: Safely executes code or commands in Gemini's sandbox environment. Always runs in sandbox mode.
-  - **`prompt`** (required): Code testing request (e.g., `Create and run a Python script that...` or `@script.py Run this safely`).
+- **`brainstorm`**: Generate novel ideas using creative frameworks (SCAMPER, Design Thinking, lateral thinking, etc.) with domain context, constraints, and feasibility analysis.
+  - **`prompt`** (required): The brainstorming challenge or question.
+  - **`methodology`** (optional): Framework to use (`divergent`, `convergent`, `scamper`, `design-thinking`, `lateral`, `auto`).
   - **`model`** (optional): The Gemini model to use.
 - **`Ping`**: A simple test tool that echoes back a message.
 - **`Help`**: Shows the Gemini CLI help text.

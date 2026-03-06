@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "test-gemini-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "/Volumes/SandE/temp/202601/gemini-mcp-tool/dist/index.js"
+      ],
+      "env": {}
+    }
+  }
+}

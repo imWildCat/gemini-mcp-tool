@@ -1,8 +1,9 @@
-import { executeCommand } from './commandExecutor.js';
+import { executeCommand, CommandOptions } from './commandExecutor.js';
 import { Logger } from './logger.js';
 import {
   FALLBACK_MODELS,
-  CLI
+  CLI,
+  TIMEOUTS,
 } from '../constants.js';
 
 import { parseChangeModeOutput, validateChangeModeEdits } from './changeModeParser.js';
@@ -11,7 +12,7 @@ import { chunkChangeModeEdits } from './changeModeChunker.js';
 import { cacheChunks, getChunks } from './chunkCache.js';
 
 /**
- * Get the user-configured default model from environment variable, if any.
+ * User-configured default model from env, if any.
  * Returns undefined when no env override is set (triggers fallback chain).
  */
 function getEnvModelOverride(): string | undefined {
@@ -20,7 +21,8 @@ function getEnvModelOverride(): string | undefined {
 
 /**
  * Build CLI args for a single Gemini invocation.
- * When `model` is null, the --model flag is omitted entirely.
+ * Always includes --yolo so the CLI auto-approves tool calls
+ * (stdin is piped away, so interactive confirmation would hang).
  */
 function buildArgs(model: string | null, sandbox: boolean): string[] {
   const args: string[] = [];
@@ -30,7 +32,15 @@ function buildArgs(model: string | null, sandbox: boolean): string[] {
   if (sandbox) {
     args.push(CLI.FLAGS.SANDBOX);
   }
+  // Always run in yolo mode: the MCP server provides no TTY,
+  // so the CLI must not block waiting for user confirmation.
+  args.push(CLI.FLAGS.YOLO);
   return args;
+}
+
+export interface GeminiResult {
+  output: string;
+  model: string;
 }
 
 export async function executeGeminiCLI(
@@ -38,13 +48,13 @@ export async function executeGeminiCLI(
   model?: string,
   sandbox?: boolean,
   changeMode?: boolean,
-  onProgress?: (newOutput: string) => void
-): Promise<string> {
+  onProgress?: (newOutput: string) => void,
+): Promise<GeminiResult> {
   let prompt_processed = prompt;
-  
+
   if (changeMode) {
     prompt_processed = prompt.replace(/file:(\S+)/g, '@$1');
-    
+
     const changeModeInstructions = `
 [CHANGEMODE INSTRUCTIONS]
 You are generating code modifications that will be processed by an automated system. The output format is critical because it enables programmatic application of changes without human intervention.
@@ -107,53 +117,53 @@ ${prompt_processed}
 `;
     prompt_processed = changeModeInstructions;
   }
-  
-  // Ensure @ symbols work cross-platform by wrapping in quotes if needed
+
+  // Wrap prompts containing @ syntax in quotes for cross-platform compat
   const finalPrompt = prompt_processed.includes('@') && !prompt_processed.startsWith('"')
     ? `"${prompt_processed}"`
     : prompt_processed;
 
+  const timeoutMs = sandbox ? TIMEOUTS.COMMAND_SANDBOX_MS : TIMEOUTS.COMMAND_DEFAULT_MS;
+
   // --- Model selection strategy ---
-  // If the user explicitly specified a model, use it directly (no fallback).
-  // If an env override exists, use that directly (no fallback).
-  // Otherwise, iterate through FALLBACK_MODELS.
   const envOverride = getEnvModelOverride();
 
   if (model) {
-    // User-specified model → single attempt
     const args = buildArgs(model, !!sandbox);
     args.push(finalPrompt);
-    return executeCommand(CLI.COMMANDS.GEMINI, args, onProgress);
+    const output = await executeCommand(CLI.COMMANDS.GEMINI, args, { timeoutMs, onProgress });
+    return { output, model };
   }
 
   if (envOverride) {
-    // Env-configured model → single attempt
     const args = buildArgs(envOverride, !!sandbox);
     args.push(finalPrompt);
-    return executeCommand(CLI.COMMANDS.GEMINI, args, onProgress);
+    const output = await executeCommand(CLI.COMMANDS.GEMINI, args, { timeoutMs, onProgress });
+    return { output, model: envOverride };
   }
 
-  // No model specified → fallback chain
+  // No model specified -> fallback chain
   let lastError: Error | undefined;
   for (let i = 0; i < FALLBACK_MODELS.length; i++) {
     const candidateModel = FALLBACK_MODELS[i];
-    const isLastAttempt = i === FALLBACK_MODELS.length - 1;
     const label = candidateModel ?? '(CLI default)';
     try {
       Logger.debug(`Trying model: ${label}`);
       const args = buildArgs(candidateModel, !!sandbox);
       args.push(finalPrompt);
-      // Only pass onProgress to the last attempt to avoid leaking
-      // partial output from a failed model through the callback
-      return await executeCommand(CLI.COMMANDS.GEMINI, args, isLastAttempt ? onProgress : undefined);
+      // Always forward progress — on fallback, the new process starts with fresh stdout,
+      // so the first onProgress call naturally overwrites stale state from the failed model.
+      const output = await executeCommand(CLI.COMMANDS.GEMINI, args, {
+        timeoutMs,
+        onProgress,
+      });
+      return { output, model: label };
     } catch (error) {
       lastError = error as Error;
       Logger.debug(`Model ${label} failed: ${lastError.message}`);
-      // Continue to next model in the fallback chain
     }
   }
 
-  // All fallback models exhausted
   throw lastError ?? new Error('All model fallback attempts failed');
 }
 
@@ -161,7 +171,7 @@ export async function processChangeModeOutput(
   rawResult: string,
   chunkIndex?: number,
   chunkCacheKey?: string,
-  prompt?: string
+  prompt?: string,
 ): Promise<string> {
   // Check for cached chunks first
   if (chunkIndex && chunkCacheKey) {
@@ -171,57 +181,49 @@ export async function processChangeModeOutput(
       const chunk = cachedChunks[chunkIndex - 1];
       let result = formatChangeModeResponse(
         chunk.edits,
-        { current: chunkIndex, total: cachedChunks.length, cacheKey: chunkCacheKey }
+        { current: chunkIndex, total: cachedChunks.length, cacheKey: chunkCacheKey },
       );
-      
-      // Add summary for first chunk only
+
       if (chunkIndex === 1 && chunk.edits.length > 5) {
         const allEdits = cachedChunks.flatMap(c => c.edits);
         result = summarizeChangeModeEdits(allEdits) + '\n\n' + result;
       }
-      
       return result;
     }
     Logger.debug(`Cache miss or invalid chunk index, processing new result`);
   }
-  
-  // Parse OLD/NEW format
+
   const edits = parseChangeModeOutput(rawResult);
-  
+
   if (edits.length === 0) {
     return `No edits found in Gemini's response. Please ensure Gemini uses the OLD/NEW format. \n\n+ ${rawResult}`;
   }
 
-  // Validate edits
   const validation = validateChangeModeEdits(edits);
   if (!validation.valid) {
     return `Edit validation failed:\n${validation.errors.join('\n')}`;
   }
-  
+
   const chunks = chunkChangeModeEdits(edits);
-  
-  // Cache if multiple chunks and we have the original prompt
+
   let cacheKey: string | undefined;
   if (chunks.length > 1 && prompt) {
     cacheKey = cacheChunks(prompt, chunks);
     Logger.debug(`Cached ${chunks.length} chunks with key: ${cacheKey}`);
   }
-  
-  // Return requested chunk or first chunk
+
   const returnChunkIndex = (chunkIndex && chunkIndex > 0 && chunkIndex <= chunks.length) ? chunkIndex : 1;
   const returnChunk = chunks[returnChunkIndex - 1];
-  
-  // Format the response
+
   let result = formatChangeModeResponse(
     returnChunk.edits,
-    chunks.length > 1 ? { current: returnChunkIndex, total: chunks.length, cacheKey } : undefined
+    chunks.length > 1 ? { current: returnChunkIndex, total: chunks.length, cacheKey } : undefined,
   );
-  
-  // Add summary if helpful (only for first chunk)
+
   if (returnChunkIndex === 1 && edits.length > 5) {
     result = summarizeChangeModeEdits(edits, chunks.length > 1) + '\n\n' + result;
   }
-  
+
   Logger.debug(`ChangeMode: Parsed ${edits.length} edits, ${chunks.length} chunks, returning chunk ${returnChunkIndex}`);
   return result;
 }

@@ -24,33 +24,31 @@ export const askGeminiTool: UnifiedTool = {
   },
   category: 'gemini',
   execute: async (args, onProgress) => {
-    const { prompt, model, sandbox, changeMode, chunkIndex, chunkCacheKey } = args; if (!prompt?.trim()) { throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED); }
-  
-    if (changeMode && chunkIndex && chunkCacheKey) {
-      return processChangeModeOutput(
-        '', // empty for cache...
-        chunkIndex as number,
-        chunkCacheKey as string,
-        prompt as string
-      );
+    const { prompt, model, sandbox, changeMode, chunkIndex, chunkCacheKey } = args;
+    if (!prompt || !String(prompt).trim()) {
+      throw new Error(ERROR_MESSAGES.NO_PROMPT_PROVIDED);
     }
-    
-    const result = await executeGeminiCLI(
-      prompt as string,
-      model as string | undefined,
+
+    const promptStr = String(prompt);
+    const modelStr = model ? String(model) : undefined;
+    const chunkIdx = chunkIndex ? Number(chunkIndex) : undefined;
+    const cacheKeyStr = chunkCacheKey ? String(chunkCacheKey) : undefined;
+
+    if (changeMode && chunkIdx && cacheKeyStr) {
+      return processChangeModeOutput('', chunkIdx, cacheKeyStr, promptStr);
+    }
+
+    const { output, model: usedModel } = await executeGeminiCLI(
+      promptStr,
+      modelStr,
       !!sandbox,
       !!changeMode,
-      onProgress
+      onProgress,
     );
-    
+
     if (changeMode) {
-      return processChangeModeOutput(
-        result,
-        args.chunkIndex as number | undefined,
-        undefined,
-        prompt as string
-      );
+      return processChangeModeOutput(output, chunkIdx, undefined, promptStr);
     }
-    return `${STATUS_MESSAGES.GEMINI_RESPONSE}\n${result}`; // changeMode false
+    return `${STATUS_MESSAGES.GEMINI_RESPONSE} [model: ${usedModel}]\n${output}`;
   }
 };

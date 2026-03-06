@@ -18,20 +18,22 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { Logger } from "./utils/logger.js";
 import { PROTOCOL, ToolArguments } from "./constants.js";
+import { createProgressTracker } from "./utils/timeoutManager.js";
 
-import { 
-  getToolDefinitions, 
-  getPromptDefinitions, 
-  executeTool, 
-  toolExists, 
-  getPromptMessage 
+import {
+  getToolDefinitions,
+  getPromptDefinitions,
+  executeTool,
+  toolExists,
+  getPromptMessage,
 } from "./tools/index.js";
 
 const server = new Server(
   {
     name: "gemini-cli-mcp",
-    version: "1.1.4",
-  },{
+    version: "1.6.0",
+  },
+  {
     capabilities: {
       tools: {},
       prompts: {},
@@ -41,218 +43,125 @@ const server = new Server(
   },
 );
 
-let isProcessing = false; let currentOperationName = ""; let latestOutput = "";
-
-async function sendNotification(method: string, params: any) {
-  try {
-    await server.notification({ method, params });
-  } catch (error) {
-    Logger.error("notification failed: ", error);
-  }
-}
-
-/**
- * @param progressToken The progress token provided by the client
- * @param progress The current progress value
- * @param total Optional total value
- * @param message Optional status message
- */
 async function sendProgressNotification(
-  progressToken: string | number | undefined,
+  progressToken: string | number,
   progress: number,
-  total?: number,
-  message?: string
-) {
-  if (!progressToken) return; // Only send if client requested progress
-  
+  total: number | undefined,
+  message: string,
+): Promise<void> {
   try {
-    const params: any = {
-      progressToken,
-      progress
-    };
-    
-    if (total !== undefined) params.total = total; // future cache progress
+    const params: Record<string, string | number> = { progressToken, progress };
+    if (total !== undefined) params.total = total;
     if (message) params.message = message;
-    
+
     await server.notification({
       method: PROTOCOL.NOTIFICATIONS.PROGRESS,
-      params
+      params,
     });
   } catch (error) {
     Logger.error("Failed to send progress notification:", error);
   }
 }
 
-function startProgressUpdates(
-  operationName: string,
-  progressToken?: string | number
-) {
-  isProcessing = true;
-  currentOperationName = operationName;
-  latestOutput = ""; // Reset latest output
-  
-  const progressMessages = [
-    `🧠 ${operationName} - Gemini is analyzing your request...`,
-    `📊 ${operationName} - Processing files and generating insights...`,
-    `✨ ${operationName} - Creating structured response for your review...`,
-    `⏱️ ${operationName} - Large analysis in progress (this is normal for big requests)...`,
-    `🔍 ${operationName} - Still working... Gemini takes time for quality results...`,
-  ];
-  
-  let messageIndex = 0;
-  let progress = 0;
-  
-  // Send immediate acknowledgment if progress requested
-  if (progressToken) {
-    sendProgressNotification(
-      progressToken,
-      0,
-      undefined, // No total - indeterminate progress
-      `🔍 Starting ${operationName}`
-    );
-  }
-  
-  // Keep client alive with periodic updates
-  const progressInterval = setInterval(async () => {
-    if (isProcessing && progressToken) {
-      // Simply increment progress value
-      progress += 1;
-      
-      // Include latest output if available
-      const baseMessage = progressMessages[messageIndex % progressMessages.length];
-      const outputPreview = latestOutput.slice(-150).trim(); // Last 150 chars
-      const message = outputPreview 
-        ? `${baseMessage}\n📝 Output: ...${outputPreview}`
-        : baseMessage;
-      
-      await sendProgressNotification(
-        progressToken,
-        progress,
-        undefined, // No total - indeterminate progress
-        message
-      );
-      messageIndex++;
-    } else if (!isProcessing) {
-      clearInterval(progressInterval);
-    }
-  }, PROTOCOL.KEEPALIVE_INTERVAL); // Every 25 seconds
-  
-  return { interval: progressInterval, progressToken };
-}
-
-function stopProgressUpdates(
-  progressData: { interval: NodeJS.Timeout; progressToken?: string | number },
-  success: boolean = true
-) {
-  const operationName = currentOperationName; // Store before clearing
-  isProcessing = false;
-  currentOperationName = "";
-  clearInterval(progressData.interval);
-  
-  // Send final progress notification if client requested progress
-  if (progressData.progressToken) {
-    sendProgressNotification(
-      progressData.progressToken,
-      100,
-      100,
-      success ? `✅ ${operationName} completed successfully` : `❌ ${operationName} failed`
-    );
-  }
-}
-
 // tools/list
-server.setRequestHandler(ListToolsRequestSchema, async (request: ListToolsRequest): Promise<{ tools: Tool[] }> => {
-  return { tools: getToolDefinitions() as unknown as Tool[] };
-});
+server.setRequestHandler(
+  ListToolsRequestSchema,
+  async (_request: ListToolsRequest): Promise<{ tools: Tool[] }> => {
+    return { tools: getToolDefinitions() as unknown as Tool[] };
+  },
+);
 
-// tools/get
-server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest): Promise<CallToolResult> => {
-  const toolName: string = request.params.name;
+// tools/call
+server.setRequestHandler(
+  CallToolRequestSchema,
+  async (request: CallToolRequest): Promise<CallToolResult> => {
+    const toolName: string = request.params.name;
 
-  if (toolExists(toolName)) {
-    // Check if client requested progress updates
-    const progressToken = (request.params as any)._meta?.progressToken;
-    
-    // Start progress updates if client requested them
-    const progressData = startProgressUpdates(toolName, progressToken);
-    
+    if (!toolExists(toolName)) {
+      throw new Error(`Unknown tool: ${toolName}`);
+    }
+
+    const progressToken = (
+      request.params as Record<string, Record<string, string | number> | undefined>
+    )._meta?.progressToken;
+
+    // Each request gets its own isolated progress tracker — no shared mutable state
+    const tracker = createProgressTracker({
+      operationName: toolName,
+      progressToken,
+      sendProgress: sendProgressNotification,
+      intervalMs: PROTOCOL.KEEPALIVE_INTERVAL,
+    });
+
     try {
-      // Get prompt and other parameters from arguments with proper typing
-      const args: ToolArguments = (request.params.arguments as ToolArguments) || {};
+      const args: ToolArguments = (request.params.arguments as ToolArguments) ?? {};
+      Logger.toolInvocation(toolName, args);
 
-      Logger.toolInvocation(toolName, request.params.arguments);
-
-      // Execute the tool using the unified registry with progress callback
       const result = await executeTool(toolName, args, (newOutput) => {
-        latestOutput = newOutput;
+        tracker.latestOutput = newOutput;
       });
 
-      // Stop progress updates
-      stopProgressUpdates(progressData, true);
+      tracker.stop(true);
 
       return {
-        content: [
-          {
-            type: "text",
-            text: result,
-          },
-        ],
+        content: [{ type: "text", text: result }],
         isError: false,
       };
     } catch (error) {
-      // Stop progress updates on error
-      stopProgressUpdates(progressData, false);
-      
+      tracker.stop(false);
       Logger.error(`Error in tool '${toolName}':`, error);
 
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       return {
-        content: [
-          {
-            type: "text",
-            text: `Error executing ${toolName}: ${errorMessage}`,
-          },
-        ],
+        content: [{ type: "text", text: `Error executing ${toolName}: ${errorMessage}` }],
         isError: true,
       };
     }
-  } else {
-    throw new Error(`Unknown tool: ${request.params.name}`);
-  }
-});
+  },
+);
 
 // prompts/list
-server.setRequestHandler(ListPromptsRequestSchema, async (request: ListPromptsRequest): Promise<{ prompts: Prompt[] }> => {
-  return { prompts: getPromptDefinitions() as unknown as Prompt[] };
-});
+server.setRequestHandler(
+  ListPromptsRequestSchema,
+  async (_request: ListPromptsRequest): Promise<{ prompts: Prompt[] }> => {
+    return { prompts: getPromptDefinitions() as unknown as Prompt[] };
+  },
+);
 
 // prompts/get
-server.setRequestHandler(GetPromptRequestSchema, async (request: GetPromptRequest): Promise<GetPromptResult> => {
-  const promptName = request.params.name;
-  const args = request.params.arguments || {};
-  
-  const promptMessage = getPromptMessage(promptName, args);
-  
-  if (!promptMessage) {
-    throw new Error(`Unknown prompt: ${promptName}`);
-  }
-  
-  return { 
-    messages: [{
-      role: "user" as const,
-      content: {
-        type: "text" as const,
-        text: promptMessage
-      }
-    }]
-  };
-});
+server.setRequestHandler(
+  GetPromptRequestSchema,
+  async (request: GetPromptRequest): Promise<GetPromptResult> => {
+    const promptName = request.params.name;
+    const args = request.params.arguments ?? {};
+
+    const promptMessage = getPromptMessage(promptName, args);
+
+    if (!promptMessage) {
+      throw new Error(`Unknown prompt: ${promptName}`);
+    }
+
+    return {
+      messages: [
+        {
+          role: "user" as const,
+          content: { type: "text" as const, text: promptMessage },
+        },
+      ],
+    };
+  },
+);
 
 // Start the server
 async function main() {
-  Logger.debug("init gemini-mcp-tool");
-  const transport = new StdioServerTransport(); await server.connect(transport);
+  Logger.debug("init gemini-mcp-tool v1.6.0");
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
   Logger.debug("gemini-mcp-tool listening on stdio");
-} main().catch((error) => {Logger.error("Fatal error:", error); process.exit(1); }); 
+}
+
+main().catch((error) => {
+  Logger.error("Fatal error:", error);
+  process.exit(1);
+});

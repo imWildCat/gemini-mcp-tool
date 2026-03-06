@@ -28,53 +28,48 @@ export const fetchChunkTool: UnifiedTool = {
   
   category: 'utility',
   
-  execute: async (args: any, onProgress?: (newOutput: string) => void): Promise<string> => {
-    const { cacheKey, chunkIndex } = args;
-    
+  execute: async (args, _onProgress) => {
+    const key = String(args.cacheKey);
+    const idx = Number(args.chunkIndex);
+
     Logger.toolInvocation('fetch-chunk', args);
-    Logger.debug(`Fetching chunk ${chunkIndex} with cache key: ${cacheKey}`);
-    
-    // Retrieve cached chunks
-    const chunks = getChunks(cacheKey);
-    
+    Logger.debug(`Fetching chunk ${idx} with cache key: ${key}`);
+
+    const chunks = getChunks(key);
+
     if (!chunks) {
-      return `❌ Cache miss: No chunks found for cache key "${cacheKey}". 
+      return `Cache miss: No chunks found for cache key "${key}".
 
   Possible reasons:
-  1. The cache key is incorrect, Have you ran ask-gemini with changeMode enabled?
+  1. The cache key is incorrect — have you run ask-gemini with changeMode enabled?
   2. The cache has expired (10 minute TTL)
   3. The MCP server was restarted and the file-based cache was cleared
 
 Please re-run the original changeMode request to regenerate the chunks.`;
     }
-    
-    // Validate chunk index
-    if (chunkIndex < 1 || chunkIndex > chunks.length) {
-      return `❌ Invalid chunk index: ${chunkIndex}
+
+    if (idx < 1 || idx > chunks.length) {
+      return `Invalid chunk index: ${idx}
 
 Available chunks: 1 to ${chunks.length}
-You requested: ${chunkIndex}
+You requested: ${idx}
 
 Please use a valid chunk index.`;
     }
-    
-    // Get the requested chunk
-    const chunk = chunks[chunkIndex - 1];
-    
-    // Format the response
+
+    const chunk = chunks[idx - 1];
+
     let result = formatChangeModeResponse(
       chunk.edits,
-      { current: chunkIndex, total: chunks.length, cacheKey }
+      { current: idx, total: chunks.length, cacheKey: key },
     );
-    
-    // Add summary for first chunk
-    if (chunkIndex === 1 && chunks.length > 1) {
+
+    if (idx === 1 && chunks.length > 1) {
       const allEdits = chunks.flatMap(c => c.edits);
       result = summarizeChangeModeEdits(allEdits, true) + '\n\n' + result;
     }
-    
-    Logger.debug(`Returning chunk ${chunkIndex} of ${chunks.length} with ${chunk.edits.length} edits`);
-    
+
+    Logger.debug(`Returning chunk ${idx} of ${chunks.length} with ${chunk.edits.length} edits`);
     return result;
   }
 };
